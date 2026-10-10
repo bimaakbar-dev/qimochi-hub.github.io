@@ -22,7 +22,7 @@ const anime = defineCollection({
     year: z.number().int().min(1900).max(2100).optional(),
     episodes: z.number().int().nullable().optional(),
     duration: z.number().int().positive().optional(),
-    rating: AnimeRating.optional(),
+    rating: z.string().optional(),
 
     aired: z
       .object({

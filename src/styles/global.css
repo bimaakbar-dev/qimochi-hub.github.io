@@ -38,7 +38,7 @@ a { transition: color var(--t-fast); }
 
 ::selection {
   background-color: var(--accent-soft);
-  color: var(--text-primary);
+  color: var(--text-inverted);
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -48,9 +48,6 @@ a { transition: color var(--t-fast); }
 
 * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-base); }
 
-/* ----------------------------------------------------------
-   UTILITY
-   ---------------------------------------------------------- */
 .wrapper {
   width: 100%;
   max-width: var(--content-max-mobile);
@@ -88,9 +85,6 @@ a { transition: color var(--t-fast); }
 
 .skip-link:focus { top: var(--s-2); }
 
-/* ----------------------------------------------------------
-   REDUCED MOTION
-   ---------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -29,6 +29,8 @@ jobs:
           rm -rf src/content/anime
           rm -rf src/data/anime
           rm -rf src/data/actors
+          rm -f  src/data/genres.json
+          rm -f  src/data/studios.json
           mkdir -p src/content/anime
           mkdir -p src/data
           if [ -d _data/src/content/anime ]; then
@@ -40,13 +42,21 @@ jobs:
           if [ -d _data/data/actors ]; then
             cp -r _data/data/actors src/data/actors
           fi
+          if [ -f _data/data/genres.json ]; then
+            cp _data/data/genres.json src/data/genres.json
+          fi
+          if [ -f _data/data/studios.json ]; then
+            cp _data/data/studios.json src/data/studios.json
+          fi
           echo "=== src/content/anime ==="
           ls -1 src/content/anime/ | wc -l
           echo "=== src/data/anime ==="
           ls -1 src/data/anime/ 2>/dev/null | wc -l
+          echo "=== genres / studios ==="
+          ls -la src/data/genres.json src/data/studios.json 2>/dev/null || true
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm

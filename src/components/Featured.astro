@@ -10,7 +10,7 @@ interface AnimeItem {
     cover: string;
     status: string;
     releaseDate: Date | null;
-    rating: number;
+    stats?: { score?: number };
   };
 }
 
@@ -21,6 +21,15 @@ interface Props {
 const { items = [] } = Astro.props;
 
 if (items.length === 0) return null;
+
+function metaLine(anime: AnimeItem): string {
+  const parts: string[] = [anime.data.status];
+  const year = anime.data.releaseDate?.getFullYear();
+  if (year) parts.push(String(year));
+  const score = anime.data.stats?.score;
+  if (typeof score === 'number') parts.push(`Rating ${score.toFixed(1)}`);
+  return parts.join(' · ');
+}
 ---
 
 <section class="hero-carousel" aria-label="Anime terbaru">
@@ -32,13 +41,7 @@ if (items.length === 0) return null;
             <div class="hero-text">
               <Badge variant="accent" mark>BARU</Badge>
               <h1 class="hero-title">{anime.data.title}</h1>
-              <p class="hero-meta">
-                {anime.data.status}
-                {anime.data.releaseDate && (
-                  <> · {anime.data.releaseDate.getFullYear()}</>
-                )}
-                {' · Rating '}{anime.data.rating}
-              </p>
+              <p class="hero-meta">{metaLine(anime)}</p>
               <LinkButton
                 href={URLS.anime(anime.id)}
                 variant="accent"

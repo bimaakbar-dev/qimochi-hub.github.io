@@ -2,8 +2,6 @@ import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
-const AnimeRating = z.enum(['G', 'PG', 'PG-13', 'R', 'R+', 'Rx']);
-
 const anime = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/anime' }),
   schema: z.object({

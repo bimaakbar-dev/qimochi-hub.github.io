@@ -1,6 +1,6 @@
 ---
 interface Props {
-  variant?: 'default' | 'outline' | 'flat';
+  variant?: 'default' | 'outline' | 'flat' | 'trans';
   padding?: 'none' | 'sm' | 'md' | 'lg';
   as?: 'div' | 'section' | 'article' | 'aside';
   class?: string;
@@ -31,7 +31,6 @@ const {
     border: 1px solid transparent;
   }
 
-  /* ---------- VARIANT ---------- */
   .card-default {
     background: var(--bg-elevated);
   }
@@ -44,8 +43,11 @@ const {
   .card-flat {
     background: var(--bg-surface);
   }
+  
+  .card-trans {
+    background: transparent;
+  }
 
-  /* ---------- PADDING ---------- */
   .card-pad-none { padding: 0; }
   .card-pad-sm   { padding: var(--s-3); }
   .card-pad-md   { padding: var(--s-4); }

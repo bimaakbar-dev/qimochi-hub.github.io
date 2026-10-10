@@ -1,5 +1,6 @@
 ---
-import { SITE, GENRES, PER_PAGE, URLS, ADS } from '~/constants';
+import { getCollection } from 'astro:content';
+import { SITE, PER_PAGE, URLS, ADS } from '~/constants';
 import { getAllAnime, type HydratedAnime } from '~/lib/anime';
 
 import BaseLayout from '~/layouts/BaseLayout.astro';
@@ -13,9 +14,10 @@ import SectionLabel from '~/components/SectionLabel.astro';
 import Page from '~/components/Page.astro';
 
 const allAnime = await getAllAnime();
+const allGenres = await getCollection('genres');
 
 function latestUpdateTime(a: HydratedAnime): number {
-  return (a.data.updatedAt ?? a.data.addedAt).getTime();
+  return (a.data.updatedAt ?? a.data.addedAt)?.getTime() ?? 0;
 }
 
 const ongoingWithEpisodes = allAnime.filter(
@@ -37,15 +39,19 @@ const completed = [...allAnime]
   .sort((a, b) => latestUpdateTime(b) - latestUpdateTime(a))
   .slice(0, PER_PAGE);
 
-const genreCounts: Record<string, number> = {};
-allAnime.forEach((a) => {
-  a.data.genre.forEach((g) => {
-    genreCounts[g] = (genreCounts[g] || 0) + 1;
+const genreCounts = new Map<string, number>();
+allAnime.forEach(a => {
+  a.data.genres.forEach(slug => {
+    genreCounts.set(slug, (genreCounts.get(slug) ?? 0) + 1);
   });
 });
 
-const genres = GENRES
-  .map(name => ({ name, count: genreCounts[name] || 0 }))
+const genres = allGenres
+  .map(g => ({
+    id: g.data.id,
+    name: g.data.name,
+    count: genreCounts.get(g.data.id) ?? 0,
+  }))
   .filter(g => g.count > 0)
   .sort((a, b) => b.count - a.count)
   .slice(0, 8);
@@ -117,7 +123,7 @@ const genres = GENRES
         <div class="genre-grid">
           {genres.map(g => (
             <LinkCard
-              href={URLS.genre(g.name)}
+              href={URLS.genre(g.id)}
               variant="outline"
               padding="sm"
             >

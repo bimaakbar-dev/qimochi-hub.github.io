@@ -1,28 +1,15 @@
 import { getCollection, getEntry, type CollectionEntry } from 'astro:content';
+import { STATUS_LABEL, TYPE_LABEL, type RawStatus, type RawType } from '~/constants';
 
-export interface EpisodeServer {
-  name: string;
-  url: string;
-}
-
-export interface EpisodeStream {
-  quality: string;
-  servers: EpisodeServer[];
-}
-
-export interface EpisodeDownload {
-  quality: string;
-  size: string;
-  servers: EpisodeServer[];
-}
-
+export interface EpisodeServer { name: string; url: string; }
+export interface EpisodeStream { quality: string; servers: EpisodeServer[]; }
+export interface EpisodeDownload { quality: string; size: string; servers: EpisodeServer[]; }
 export interface EpisodeData {
   number: number;
   title?: string;
   streams: EpisodeStream[];
   downloads?: EpisodeDownload[];
 }
-
 export interface Franchise {
   relation: string;
   slug: string;
@@ -31,46 +18,31 @@ export interface Franchise {
 
 export type AnimeEntry = CollectionEntry<'anime'>;
 
-type QimochiStatus = 'Ongoing' | 'Completed' | 'Hiatus' | 'Upcoming';
-type QimochiType = 'TV' | 'Movie' | 'OVA' | 'ONA' | 'Special';
+// Display status yang dipakai UI (bukan schema — schema pakai raw enum)
+export type QimochiStatus = 'Ongoing' | 'Completed' | 'Hiatus' | 'Upcoming';
+export type QimochiType = 'TV' | 'Movie' | 'OVA' | 'ONA' | 'Special';
 
 export type HydratedAnime = Omit<AnimeEntry, 'data'> & {
-  data: {
-    title: string;
-    cover: string;
+  data: Omit<AnimeEntry['data'], 'status' | 'type'> & {
+    // display (di-derive dari raw schema)
     status: QimochiStatus;
     type: QimochiType;
-    genre: string[];
+
+    // view convenience
+    cover: string;
     studio: string;
-    releaseDate: Date;
-    addedAt: Date;
-    updatedAt?: Date;
-    rating: number;
+    genre: string[];
+    releaseDate: Date | null;
+    rating: number;          // = stats.score ?? 0 (backward compat — TODO rename ke `score`)
     episodes: EpisodeData[];
     franchises: Franchise[];
-
-    titleEnglish?: string;
-    titleNative?: string;
-    year?: number;
-    malId?: number;
-    banner?: string;
-    trailer?: string;
-    duration?: number;
   };
 };
 
-interface ChunkRef {
-  slug: string;
-  start: number;
-  end: number;
-  path: string;
-}
+interface ChunkRef { slug: string; start: number; end: number; path: string; }
 
 const HIDDEN_RELATIONS = new Set([
-  'character',
-  'adaptation',
-  'contains',
-  'other',
+  'character', 'adaptation', 'contains', 'other',
 ]);
 
 const episodeModules = import.meta.glob<{ default: EpisodeData[] }>(
@@ -84,25 +56,18 @@ const franchiseModules = import.meta.glob<{ default: Franchise[] }>(
 );
 
 const chunksBySlug: Record<string, ChunkRef[]> = {};
-
 for (const [path, mod] of Object.entries(episodeModules)) {
-  const match = path.match(
-  /\/data\/anime\/([^/]+)\/episodes\/streams\/(\d+)-(\d+)\.json$/
-  );
+  const match = path.match(/\/data\/anime\/([^/]+)\/episodes\/streams\/(\d+)-(\d+)\.json$/);
   if (!match) continue;
-
   const slug = match[1];
   const start = parseInt(match[2] ?? '0', 10);
   const end = parseInt(match[3] ?? '0', 10);
   if (!slug || isNaN(start) || isNaN(end)) continue;
   if (!Array.isArray(mod.default)) continue;
-
-  if (!chunksBySlug[slug]) chunksBySlug[slug] = [];
-  chunksBySlug[slug]!.push({ slug, start, end, path });
+  (chunksBySlug[slug] ??= []).push({ slug, start, end, path });
 }
 
 const episodesBySlug: Record<string, EpisodeData[]> = {};
-
 for (const [slug, chunks] of Object.entries(chunksBySlug)) {
   chunks.sort((a, b) => a.start - b.start);
   const merged: EpisodeData[] = [];
@@ -116,50 +81,27 @@ for (const [slug, chunks] of Object.entries(chunksBySlug)) {
 }
 
 const franchisesBySlug: Record<string, Franchise[]> = {};
-
 for (const [path, mod] of Object.entries(franchiseModules)) {
   const match = path.match(/\/data\/anime\/([^/]+)\/franchises\.json$/);
   if (!match) continue;
   const slug = match[1];
   if (!slug) continue;
-
   const raw = Array.isArray(mod.default) ? mod.default : [];
   franchisesBySlug[slug] = raw.filter(
     (f) => f && typeof f.slug === 'string' && !HIDDEN_RELATIONS.has(f.relation)
   );
 }
 
-function mapStatus(s: string): QimochiStatus {
-  switch (s) {
-    case 'airing':
-      return 'Ongoing';
-    case 'finished':
-      return 'Completed';
-    case 'upcoming':
-      return 'Upcoming';
-    case 'hiatus':
-      return 'Hiatus';
-    case 'cancelled':
-      return 'Completed';
-    default:
-      return 'Upcoming';
-  }
+// ────────────────────────────────────────────────────────
+// Mapping raw schema → display (view layer)
+// ────────────────────────────────────────────────────────
+
+function toDisplayStatus(s: RawStatus): QimochiStatus {
+  return STATUS_LABEL[s] as QimochiStatus;
 }
 
-function mapType(t: string): QimochiType {
-  switch (t) {
-    case 'TV':
-    case 'Movie':
-    case 'OVA':
-    case 'ONA':
-    case 'Special':
-      return t;
-    case 'Music':
-      return 'Special';
-    case 'Unknown':
-    default:
-      return 'TV';
-  }
+function toDisplayType(t: RawType): QimochiType {
+  return TYPE_LABEL[t] as QimochiType;
 }
 
 function titleCase(s: string): string {
@@ -173,10 +115,10 @@ function titleCase(s: string): string {
 function resolveReleaseDate(
   aired: { from?: Date } | undefined,
   year: number | undefined
-): Date {
+): Date | null {
   if (aired?.from instanceof Date) return aired.from;
   if (year) return new Date(Date.UTC(year, 0, 1));
-  return new Date(0);
+  return null;
 }
 
 function resolveStudio(studios: string[] | undefined): string {
@@ -201,32 +143,20 @@ async function hydrateOne(anime: AnimeEntry): Promise<HydratedAnime> {
   const d = anime.data;
 
   const releaseDate = resolveReleaseDate(d.aired, d.year);
-  const addedAt = d.addedAt ?? releaseDate;
-  const updatedAt = d.updatedAt;
 
   return {
     ...anime,
     data: {
-      title: d.title,
-      titleEnglish: d.titleEnglish,
-      titleNative: d.titleNative,
-
+      ...d,
+      // display overrides
+      status: toDisplayStatus(d.status as RawStatus),
+      type: toDisplayType(d.type as RawType),
+      // view convenience
       cover: d.image ?? '',
-      status: mapStatus(d.status),
-      type: mapType(d.type),
-      genre: resolveGenre(d.genres),
       studio: resolveStudio(d.studios),
+      genre: resolveGenre(d.genres),
       releaseDate,
-      addedAt,
-      updatedAt,
       rating: resolveRating(d.stats),
-
-      year: d.year,
-      malId: d.malId,
-      banner: d.banner,
-      trailer: d.trailer,
-      duration: d.duration,
-
       episodes: episodesBySlug[slug] ?? [],
       franchises: franchisesBySlug[slug] ?? [],
     },
@@ -238,22 +168,22 @@ export async function getAllAnime(): Promise<HydratedAnime[]> {
   return Promise.all(all.map(hydrateOne));
 }
 
-export async function getAnimeById(
-  id: string
-): Promise<HydratedAnime | null> {
+export async function getAnimeById(id: string): Promise<HydratedAnime | null> {
   const anime = await getEntry('anime', id);
   if (!anime || anime.data.draft) return null;
   return hydrateOne(anime);
 }
 
 export function sortByRecent(items: HydratedAnime[]): HydratedAnime[] {
-  return [...items].sort(
-    (a, b) => b.data.addedAt.getTime() - a.data.addedAt.getTime()
-  );
+  return [...items].sort((a, b) => {
+    const at = (a.data.updatedAt ?? a.data.addedAt)?.getTime() ?? 0;
+    const bt = (b.data.updatedAt ?? b.data.addedAt)?.getTime() ?? 0;
+    return bt - at;
+  });
 }
 
-export function getYear(anime: HydratedAnime): number {
-  return anime.data.releaseDate.getFullYear();
+export function getYear(anime: HydratedAnime): number | null {
+  return anime.data.releaseDate?.getFullYear() ?? null;
 }
 
 export interface EpisodePathItem {
@@ -267,28 +197,16 @@ export interface EpisodePathItem {
 export async function getAllEpisodePaths(): Promise<EpisodePathItem[]> {
   const all = await getAllAnime();
   const paths: EpisodePathItem[] = [];
-
   for (const anime of all) {
     const eps = anime.data.episodes;
     const total = eps.length;
-
     eps.forEach((episode, episodeIndex) => {
-      paths.push({
-        slug: anime.id,
-        anime,
-        episode,
-        episodeIndex,
-        totalEpisodes: total,
-      });
+      paths.push({ slug: anime.id, anime, episode, episodeIndex, totalEpisodes: total });
     });
   }
-
   return paths;
 }
 
-export function findEpisode(
-  anime: HydratedAnime,
-  episodeNumber: number
-): EpisodeData | null {
+export function findEpisode(anime: HydratedAnime, episodeNumber: number): EpisodeData | null {
   return anime.data.episodes.find((e) => e.number === episodeNumber) ?? null;
 }

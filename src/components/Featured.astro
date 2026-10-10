@@ -9,7 +9,7 @@ interface AnimeItem {
     title: string;
     cover: string;
     status: string;
-    releaseDate: Date;
+    releaseDate: Date | null;
     rating: number;
   };
 }
@@ -33,7 +33,11 @@ if (items.length === 0) return null;
               <Badge variant="accent" mark>BARU</Badge>
               <h1 class="hero-title">{anime.data.title}</h1>
               <p class="hero-meta">
-                {anime.data.status} · {anime.data.releaseDate.getFullYear()} · Rating {anime.data.rating}
+                {anime.data.status}
+                {anime.data.releaseDate && (
+                  <> · {anime.data.releaseDate.getFullYear()}</>
+                )}
+                {' · Rating '}{anime.data.rating}
               </p>
               <LinkButton
                 href={URLS.anime(anime.id)}

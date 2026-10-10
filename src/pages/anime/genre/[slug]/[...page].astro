@@ -1,5 +1,6 @@
 ---
-import { getGenreData, paginate, allGenreSlugs } from '~/lib/genre';
+import { getAllGenreEntries, getAnimeByGenreSlug, paginate } from '~/lib/genre';
+import { PER_PAGE } from '~/constants';
 
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import Hero from '~/components/Hero.astro';
@@ -8,22 +9,24 @@ import Pagination from '~/components/Pagination.astro';
 import Page from '~/components/Page.astro';
 
 export async function getStaticPaths() {
+  const genres = await getAllGenreEntries();
   const paths = [];
 
-  for (const { genre, slug } of allGenreSlugs()) {
-    const { anime, totalPages } = await getGenreData(genre);
-
+  for (const g of genres) {
+    const anime = await getAnimeByGenreSlug(g.id);
     if (anime.length === 0) continue;
 
+    const totalPages = Math.max(1, Math.ceil(anime.length / PER_PAGE));
+
     paths.push({
-      params: { slug, page: undefined },
-      props: { genre, anime, totalPages, pageNumber: 1 },
+      params: { slug: g.id, page: undefined },
+      props: { genre: g.name, slug: g.id, anime, totalPages, pageNumber: 1 },
     });
 
     for (let page = 2; page <= totalPages; page++) {
       paths.push({
-        params: { slug, page: String(page) },
-        props: { genre, anime, totalPages, pageNumber: page },
+        params: { slug: g.id, page: String(page) },
+        props: { genre: g.name, slug: g.id, anime, totalPages, pageNumber: page },
       });
     }
   }
@@ -31,9 +34,8 @@ export async function getStaticPaths() {
   return paths;
 }
 
-const { genre, anime, totalPages, pageNumber } = Astro.props;
+const { genre, slug, anime, totalPages, pageNumber } = Astro.props;
 const items = paginate(anime, pageNumber);
-const slug = Astro.params.slug;
 const isFirstPage = pageNumber === 1;
 
 const title = isFirstPage
@@ -48,7 +50,7 @@ const description = isFirstPage
 <BaseLayout
   title={title}
   description={description}
-  canonical={`/genre/${slug}/`}
+  canonical={`/anime/genre/${slug}/`}
   noindex={!isFirstPage}
 >
   <Page class="wrapper">
@@ -69,9 +71,9 @@ const description = isFirstPage
     <Pagination
       current={pageNumber}
       total={totalPages}
-      base={`/genre/${slug}`}
+      base={`/anime/genre/${slug}`}
     />
-    </Page>
+  </Page>
 </BaseLayout>
 
 <style>

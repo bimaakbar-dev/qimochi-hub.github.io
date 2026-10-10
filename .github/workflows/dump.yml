@@ -14,7 +14,7 @@ jobs:
   dump:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Gabungkan isi repo
         env:
@@ -22,7 +22,7 @@ jobs:
         run: |
           OUT=dump.txt
           MAX=$(( ${MAX_KB:-200} * 1024 ))
-          SKIP='(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$|^src/content/anime/|^src/data/anime/'
+          SKIP='(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$|^src/content/anime/|^src/data/anime/|^src/data/actors/|^src/data/genres\.json$|^src/data/studios\.json$'
 
           {
             echo "# Repo: $GITHUB_REPOSITORY"

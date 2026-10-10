@@ -35,13 +35,21 @@ const episodeNumbers = data.episodes
 const firstEpisode = episodeNumbers[0] ?? 1;
 const statusVariant = STATUS_VARIANT[data.status as Status] ?? 'default';
 
-const releaseDate = new Intl.DateTimeFormat(SITE.locale, {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-}).format(data.releaseDate);
+const releaseDateLabel = data.releaseDate
+  ? new Intl.DateTimeFormat(SITE.locale, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(data.releaseDate)
+  : null;
 
-const year = data.releaseDate.getFullYear();
+const year = data.releaseDate?.getFullYear() ?? null;
+
+const pageDescription = [
+  `Nonton dan download ${data.title} batch.`,
+  data.studio,
+  year ? String(year) : null,
+].filter(Boolean).join(' ');
 
 const breadcrumbItems = [
   { label: 'Beranda', href: '/' },
@@ -52,7 +60,7 @@ const breadcrumbItems = [
 
 <BaseLayout
   title={data.title}
-  description={`Nonton dan download ${data.title} batch. ${data.studio}, ${year}.`}
+  description={pageDescription}
   image={data.cover}
   type="video.other"
 >
@@ -92,10 +100,12 @@ const breadcrumbItems = [
             <dt>Episode</dt>
             <dd>{data.episodes.length}</dd>
           </div>
-          <div class="meta-item">
-            <dt>Rilis</dt>
-            <dd>{releaseDate}</dd>
-          </div>
+          {releaseDateLabel && (
+            <div class="meta-item">
+              <dt>Rilis</dt>
+              <dd>{releaseDateLabel}</dd>
+            </div>
+          )}
           <div class="meta-item">
             <dt>Studio</dt>
             <dd>{data.studio}</dd>
@@ -146,7 +156,7 @@ const breadcrumbItems = [
           franchises={data.franchises}
         />
 
-       <Comments slug={anime.id} />
+        <Comments slug={anime.id} />
       </div>
 
       <aside class="content-aside">

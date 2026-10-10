@@ -1,7 +1,7 @@
 // src/content.config.ts
 //
 // Baseline: bimaakbar-dev/yukionime @ content.config.ts
-// Extend qimochi: addedAt, updatedAt (dipakai untuk sorting "Latest Update")
+// Extend qimochi: addedAt, updatedAt (untuk sorting "Latest Update").
 //
 // Aturan: kalau mau ubah schema anime, update yukionime dulu,
 // lalu sync ke sini. Jangan divergen di luar blok "Extend qimochi".
@@ -11,7 +11,7 @@ import { z } from 'astro/zod';
 import { glob, file } from 'astro/loaders';
 
 // ────────────────────────────────────────────────────────
-// BASELINE (verbatim yukionime)
+// BASELINE — verbatim yukionime
 // ────────────────────────────────────────────────────────
 
 const Slug = z
@@ -89,7 +89,34 @@ const anime = defineCollection({
 });
 
 // ────────────────────────────────────────────────────────
-// BLOG (khusus qimochi, tidak ada di yukionime)
+// GENRES & STUDIOS — referensi dari yukio-data
+// (di-copy oleh .github/workflows/deploy.yml)
+// ────────────────────────────────────────────────────────
+
+const genres = defineCollection({
+  loader: file('./src/data/genres.json'),
+  schema: z.object({
+    id: Slug,
+    name: z.string(),
+    description: z.string().optional(),
+    category: z.enum(['genre', 'theme', 'demographic']).default('genre'),
+  }),
+});
+
+const studios = defineCollection({
+  loader: file('./src/data/studios.json'),
+  schema: z.object({
+    id: Slug,
+    name: z.string(),
+    nameNative: z.string().optional(),
+    founded: z.number().int().min(1900).max(2100).optional(),
+    website: ExternalUrl.optional(),
+    description: z.string().optional(),
+  }),
+});
+
+// ────────────────────────────────────────────────────────
+// BLOG — khusus qimochi, tidak ada di yukionime
 // ────────────────────────────────────────────────────────
 
 const blog = defineCollection({
@@ -107,4 +134,4 @@ const blog = defineCollection({
   }),
 });
 
-export const collections = { anime, blog };
+export const collections = { anime, genres, studios, blog };

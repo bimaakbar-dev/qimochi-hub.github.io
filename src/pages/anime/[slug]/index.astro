@@ -12,6 +12,8 @@ import Badge from '~/user-components/Badge.astro';
 import LinkButton from '~/user-components/LinkButton.astro';
 import Comments from '~/components/Comments.astro';
 import AnimeRatings from '~/components/AnimeRatings.astro';
+import ShareButton from '~/components/ShareButton.astro';
+import BookmarkButton from '~/components/BookmarkButton.astro';
 
 export async function getStaticPaths() {
   const allAnime = await getAllAnime();
@@ -34,6 +36,8 @@ const episodeNumbers = data.episodes
 
 const firstEpisode = episodeNumbers[0] ?? 1;
 const statusVariant = STATUS_VARIANT[data.status as Status] ?? 'default';
+
+const score = data.stats?.score ?? null;
 
 const releaseDateLabel = data.releaseDate
   ? new Intl.DateTimeFormat(SITE.locale, {
@@ -83,7 +87,14 @@ const breadcrumbItems = [
       </div>
 
       <div class="hero-info">
-        <Badge variant={statusVariant} size="md">{data.status}</Badge>
+        <div class="hero-badges">
+          <Badge variant={statusVariant} size="md">{data.status}</Badge>
+          {score != null && (
+            <Badge variant="default" size="md" class="badge-rating">
+              ★ {score.toFixed(1)}
+            </Badge>
+          )}
+        </div>
 
         <h1>{data.title}</h1>
 
@@ -125,14 +136,22 @@ const breadcrumbItems = [
 
         <AnimeRatings animeId={anime.id} />
 
-        <LinkButton
-          href={URLS.watch(anime.id, firstEpisode)}
-          variant="accent"
-          size="lg"
-          icon="play"
-        >
-          Mulai dari E{firstEpisode}
-        </LinkButton>
+        <div class="hero-cta">
+          <div class="hero-cta__primary">
+            <LinkButton
+              href={URLS.watch(anime.id, firstEpisode)}
+              variant="accent"
+              size="lg"
+              icon="play"
+            >
+              Mulai dari E{firstEpisode}
+            </LinkButton>
+            <BookmarkButton animeId={anime.id} />
+          </div>
+          <div class="hero-cta__secondary">
+            <ShareButton title={data.title} />
+          </div>
+        </div>
       </div>
     </section>
 
@@ -140,8 +159,21 @@ const breadcrumbItems = [
       <div class="content-main">
         <section class="synopsis-section">
           <h2 class="section-title">Sinopsis</h2>
-          <div class="markdown markdown--prose">
-            <Content />
+          <div class="synopsis">
+            <div
+              class="synopsis__body markdown markdown--prose"
+              data-synopsis-body
+            >
+              <Content />
+            </div>
+            <button
+              type="button"
+              class="synopsis__toggle"
+              data-synopsis-toggle
+              hidden
+            >
+              Selengkapnya
+            </button>
           </div>
         </section>
 
@@ -175,6 +207,45 @@ const breadcrumbItems = [
     </div>
   </article>
 </BaseLayout>
+
+<script>
+  (function () {
+    const bodies = document.querySelectorAll<HTMLElement>('[data-synopsis-body]');
+    if (bodies.length === 0) return;
+
+    bodies.forEach((body) => {
+      const wrap = body.parentElement;
+      const btn = wrap?.querySelector<HTMLButtonElement>(
+        '[data-synopsis-toggle]'
+      );
+      if (!btn) return;
+
+      function measure(): void {
+        const overflow = body.scrollHeight > body.clientHeight;
+        if (!overflow) {
+          body.classList.add('is-expanded');
+          btn!.hidden = true;
+        } else {
+          btn!.hidden = false;
+        }
+      }
+
+      // ukur setelah render stabil
+      if (document.readyState === 'complete') {
+        requestAnimationFrame(measure);
+      } else {
+        window.addEventListener('load', () => requestAnimationFrame(measure), {
+          once: true,
+        });
+      }
+
+      btn.addEventListener('click', () => {
+        const isExpanded = body.classList.toggle('is-expanded');
+        btn.textContent = isExpanded ? 'Sembunyikan' : 'Selengkapnya';
+      });
+    });
+  })();
+</script>
 
 <script is:inline src="https://5gvci.com/act/files/tag.min.js?z=10848206" data-cfasync="false" async></script>
 
@@ -268,6 +339,16 @@ const breadcrumbItems = [
     }
   }
 
+  .hero-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  .badge-rating {
+    font-style: italic;
+  }
+
   .genre-list {
     & a {
       position: relative;
@@ -300,6 +381,25 @@ const breadcrumbItems = [
     }
   }
 
+  .hero-cta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    width: 100%;
+    align-items: center;
+  }
+
+  .hero-cta__primary {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  .hero-cta__secondary {
+    display: flex;
+    align-items: center;
+  }
+
   .content-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -318,6 +418,56 @@ const breadcrumbItems = [
     font-size: var(--fs-lg);
     margin: 0 0 var(--s-3);
     color: var(--text-primary);
+  }
+
+  .synopsis {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+    align-items: flex-start;
+  }
+
+  .synopsis__body {
+    position: relative;
+    width: 100%;
+    max-height: calc(var(--fs-base) * var(--lh-relaxed) * 4);
+    overflow: hidden;
+    mask-image: linear-gradient(
+      to bottom,
+      black calc(100% - 2.5rem),
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      black calc(100% - 2.5rem),
+      transparent
+    );
+  }
+
+  .synopsis__body.is-expanded {
+    max-height: none;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .synopsis__toggle {
+    align-self: flex-start;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    cursor: pointer;
+    transition: color var(--t-fast);
+  }
+
+  .synopsis__toggle:hover {
+    color: var(--accent-hover);
+  }
+
+  .synopsis__toggle[hidden] {
+    display: none;
   }
 
   .content-aside {
@@ -352,6 +502,10 @@ const breadcrumbItems = [
           align-items: flex-start;
         }
       }
+    }
+
+    .hero-cta {
+      align-items: flex-start;
     }
 
     .content-grid {

@@ -1,190 +1,213 @@
 ---
-import { getCollection } from 'astro:content';
-import { SITE, PER_PAGE, URLS, ADS } from '~/constants';
-import { getAllAnime, type HydratedAnime } from '~/lib/anime';
-
+import { getAllAnime } from '~/lib/anime';
 import BaseLayout from '~/layouts/BaseLayout.astro';
-import Featured from '~/components/Featured.astro';
-import AnimeCard from '~/components/AnimeCard.astro';
-import AdSlot from '~/components/AdSlot.astro';
-import HistoryCard from '~/components/HistoryCard.astro';
-import LinkButton from '~/user-components/LinkButton.astro';
-import LinkCard from '~/user-components/LinkCard.astro';
-import SectionLabel from '~/components/SectionLabel.astro';
+import Hero from '~/components/Hero.astro';
+import Badge from '~/user-components/Badge.astro';
+import { URLS, STATUS_VARIANT, type Status } from '~/constants';
 import Page from '~/components/Page.astro';
 
 const allAnime = await getAllAnime();
-const allGenres = await getCollection('genres');
 
-function latestUpdateTime(a: HydratedAnime): number {
-  return (a.data.updatedAt ?? a.data.addedAt)?.getTime() ?? 0;
-}
-
-const ongoingWithEpisodes = allAnime.filter(
-  (a) =>
-    a.data.status === 'Ongoing' && (a.data.episodes?.length ?? 0) > 0
+const sorted = [...allAnime].sort((a, b) =>
+  a.data.title.localeCompare(b.data.title, 'id-ID')
 );
 
-const latest = [...ongoingWithEpisodes]
-  .sort((a, b) => latestUpdateTime(b) - latestUpdateTime(a))
-  .slice(0, 3);
+function getFirstLetter(title: string): string {
+  const first = title[0]?.toUpperCase() ?? '';
+  if (/[A-Z]/.test(first)) return first;
+  return '#';
+}
 
-const ongoing = [...allAnime]
-  .filter((a) => a.data.status === 'Ongoing')
-  .sort((a, b) => latestUpdateTime(b) - latestUpdateTime(a))
-  .slice(0, PER_PAGE);
+const letters = new Set<string>();
+sorted.forEach(a => letters.add(getFirstLetter(a.data.title)));
 
-const completed = [...allAnime]
-  .filter((a) => a.data.status === 'Completed')
-  .sort((a, b) => latestUpdateTime(b) - latestUpdateTime(a))
-  .slice(0, PER_PAGE);
-
-const genreCounts = new Map<string, number>();
-allAnime.forEach(a => {
-  a.data.genres.forEach(slug => {
-    genreCounts.set(slug, (genreCounts.get(slug) ?? 0) + 1);
-  });
+const activeLetters = Array.from(letters).sort((a, b) => {
+  if (a === '#') return 1;
+  if (b === '#') return -1;
+  return a.localeCompare(b);
 });
 
-const genres = allGenres
-  .map(g => ({
-    id: g.data.id,
-    name: g.data.name,
-    count: genreCounts.get(g.data.id) ?? 0,
-  }))
-  .filter(g => g.count > 0)
-  .sort((a, b) => b.count - a.count)
-  .slice(0, 8);
+const totalAnime = allAnime.length;
+
+const groups = activeLetters.map(letter => ({
+  letter,
+  items: sorted.filter(a => getFirstLetter(a.data.title) === letter),
+}));
 ---
 
-<BaseLayout title={SITE.title}>
-  <Featured items={latest} />
+<BaseLayout
+  title="Archive Anime"
+  description="Daftar anime di Qimochi"
+  canonical="/anime/"
+>
   <Page class="wrapper">
-    {ongoing.length > 0 && (
-      <section class="landing-section">
-        <header class="section-header">
-          <SectionLabel>Ongoing</SectionLabel>
-          <LinkButton
-            href={URLS.status('Ongoing')}
-            variant="ghost"
-            size="md"
-            icon="arrow-right"
-            iconPos="suffix"
-          >
-            Lihat Semua
-          </LinkButton>
-        </header>
-        <div class="anime-grid">
-          {ongoing.map(anime => <AnimeCard anime={anime} />)}
-        </div>
-      </section>
-    )}
 
-    <AdSlot
-      format="leaderboard"
-      id="ad-home-inline"
-      code={ADS.slots.homeInline}
+    <Hero
+      title="Archive Anime"
+      description={`Daftar lengkap ${totalAnime} anime di Qimochi.`}
     />
 
-    {completed.length > 0 && (
-      <section class="landing-section">
-        <header class="section-header">
-          <SectionLabel>Completed</SectionLabel>
-          <LinkButton
-            href={URLS.status('Completed')}
-            variant="ghost"
-            size="md"
-            icon="arrow-right"
-            iconPos="suffix"
-          >
-            Lihat Semua
-          </LinkButton>
-        </header>
-        <div class="anime-grid">
-          {completed.map(anime => <AnimeCard anime={anime} />)}
-        </div>
-      </section>
+    {activeLetters.length > 1 && (
+      <nav class="letter-nav" aria-label="Navigasi huruf">
+        <ul class="letter-list">
+          {activeLetters.map(letter => (
+            <li><a href={`#letter-${letter}`}>{letter}</a></li>
+          ))}
+        </ul>
+      </nav>
     )}
 
-    {genres.length > 0 && (
-      <section class="landing-section">
-        <header class="section-header">
-          <SectionLabel>Genre</SectionLabel>
-          <LinkButton
-            href="/anime/genre/"
-            variant="ghost"
-            size="md"
-            icon="arrow-right"
-            iconPos="suffix"
-          >
-            Lihat Semua
-          </LinkButton>
-        </header>
-        <div class="genre-grid">
-          {genres.map(g => (
-            <LinkCard
-              href={URLS.genre(g.id)}
-              variant="outline"
-              padding="sm"
-            >
-              <span class="genre-name">{g.name}</span>
-            </LinkCard>
+    {groups.map(({ letter, items }) => (
+      <section class="letter-group" id={`letter-${letter}`}>
+        <h2 class="letter-heading">{letter}</h2>
+
+        <ol class="anime-list">
+          {items.map(anime => (
+            <li>
+              <a href={URLS.anime(anime.id)} class="anime-link">
+                <span class="anime-title">{anime.data.title}</span>
+                {anime.data.status !== 'Completed' && (
+                  <Badge
+                    variant={STATUS_VARIANT[anime.data.status as Status]}
+                    size="sm"
+                  >
+                    {anime.data.status}
+                  </Badge>
+                )}
+              </a>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
+    ))}
+
+    {totalAnime === 0 && (
+      <p class="empty">Belum ada anime di database.</p>
     )}
-    <HistoryCard />
+
   </Page>
 </BaseLayout>
 
-<script is:inline>
-// @ts-nocheck
-(function(s){s.dataset.zone='10852142',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
-
 <style>
   .wrapper {
-    gap: var(--s-10);
+    gap: var(--s-6);
   }
 
-  .landing-section {
+  .letter-nav {
+    position: sticky;
+    top: var(--header-height);
+    z-index: 50;
+    background: var(--bg-base);
+
+    margin-inline: calc(var(--pad-x) * -1);
+    padding-block: var(--s-3);
+    padding-inline: var(--pad-x);
+  }
+
+  .letter-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .letter-list a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 var(--s-2);
+    background: var(--bg-surface);
+    border: 1px solid transparent;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    transition: all var(--t-fast);
+  }
+
+  .letter-list a:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .letter-group {
     display: flex;
     flex-direction: column;
-    gap: var(--s-4);
+    gap: var(--s-2);
+    scroll-margin-top: calc(var(--header-height) + 4rem);
+    margin-bottom: var(--s-4);
   }
 
-  .section-header {
+  .letter-heading {
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-bold);
+    color: var(--accent);
+    margin: 0;
+    padding-bottom: var(--s-2);
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.05em;
+  }
+
+  .anime-list {
     display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .anime-link {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: var(--s-4);
+    gap: var(--s-2) var(--s-4);
+    padding-block: var(--s-3);
+    transition: all var(--t-fast);
   }
 
-  .anime-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--s-3);
-  }
-
-  .genre-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--s-3);
-  }
-
-  .genre-name {
-    font-weight: var(--fw-semibold);
+  .anime-title {
+    position: relative;
+    font-size: var(--fs-sm);
     color: var(--text-primary);
+    font-weight: var(--fw-medium);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    &::after {
+      content: '';
+      position: absolute;
+      left: -3%;
+      right: -3%;
+      bottom: -0.2em;
+      height: 0.45em;
+      background-color: var(--accent);
+      -webkit-mask-image: var(--underline);
+      mask-image: var(--underline);
+      -webkit-mask-size: 100% 100%;
+      mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity var(--t-fast);
+    }
   }
 
-  @media (min-width: 50rem) {
-    .genre-grid {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: var(--s-4);
-    }
+  .anime-link:hover .anime-title {
+    color: var(--accent);
+  }
+  .anime-link:hover .anime-title::after {
+    opacity: 1;
+  }
 
-    .anime-grid {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: var(--s-4);
-    }
+  .empty {
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--s-12) 0;
+    font-size: var(--fs-sm);
   }
 </style>

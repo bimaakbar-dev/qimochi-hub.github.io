@@ -1,7 +1,7 @@
 ---
 interface Props {
   href: string;
-  variant?: 'default' | 'outline' | 'flat';
+  variant?: 'default' | 'outline' | 'flat' | 'trans';
   padding?: 'none' | 'sm' | 'md' | 'lg';
   external?: boolean;
   lift?: boolean;
@@ -39,11 +39,10 @@ const {
 <style>
   .link-card {
     display: block;
-
     border: 1px solid transparent;
     color: inherit;
     text-decoration: none;
-    transition: transform var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+    transition: border-color var(--t-fast), background var(--t-fast);
     overflow: hidden;
   }
 
@@ -69,11 +68,19 @@ const {
     background: var(--bg-hover);
   }
 
+  .card-trans {
+    background: transparent;
+    border-color: transparent;
+  }
+
   .card-pad-none { padding: 0; }
   .card-pad-sm   { padding: var(--s-3); }
   .card-pad-md   { padding: var(--s-4); }
   .card-pad-lg   { padding: var(--s-6); }
 
+  .card-lift {
+    transition: transform var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+  }
   .card-lift:hover {
     transform: translateY(-2px);
   }

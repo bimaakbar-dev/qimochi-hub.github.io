@@ -37,6 +37,7 @@ const episodeNumbers = data.episodes
 const firstEpisode = episodeNumbers[0] ?? 1;
 const statusVariant = STATUS_VARIANT[data.status as Status] ?? 'default';
 
+const ageRating = data.rating ?? null;
 const score = data.stats?.score ?? null;
 
 const releaseDateLabel = data.releaseDate
@@ -89,9 +90,9 @@ const breadcrumbItems = [
       <div class="hero-info">
         <div class="hero-badges">
           <Badge variant={statusVariant} size="md">{data.status}</Badge>
-          {score != null && (
+          {ageRating && (
             <Badge variant="default" size="md" class="badge-rating">
-              ★ {score.toFixed(1)}
+              {ageRating}
             </Badge>
           )}
         </div>
@@ -103,10 +104,12 @@ const breadcrumbItems = [
             <dt>Tipe</dt>
             <dd>{data.type}</dd>
           </div>
-          <div class="meta-item">
-            <dt>Rating MAL</dt>
-            <dd>{data.rating} / 10</dd>
-          </div>
+          {score != null && (
+            <div class="meta-item">
+              <dt>Skor MAL</dt>
+              <dd>{score.toFixed(1)} / 10</dd>
+            </div>
+          )}
           <div class="meta-item">
             <dt>Episode</dt>
             <dd>{data.episodes.length}</dd>
@@ -230,7 +233,6 @@ const breadcrumbItems = [
         }
       }
 
-      // ukur setelah render stabil
       if (document.readyState === 'complete') {
         requestAnimationFrame(measure);
       } else {

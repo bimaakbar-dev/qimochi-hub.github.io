@@ -1,0 +1,245 @@
+---
+import Icon from '~/user-components/Icons.astro';
+
+interface Props {
+  animeId: string;
+  class?: string;
+}
+
+const { animeId, class: className } = Astro.props;
+const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
+---
+
+<button
+  type="button"
+  class:list={['icon-action', 'bookmark-btn', className]}
+  data-bookmark-btn
+  data-anime={animeId}
+  data-api={apiBase}
+  aria-label="Simpan ke bookmark"
+  aria-pressed="false"
+  title="Simpan ke bookmark"
+>
+  <span class="bookmark-icon bookmark-icon--idle">
+    <Icon name="bookmark" size={18} />
+  </span>
+  <span class="bookmark-icon bookmark-icon--active">
+    <Icon name="bookmark-filled" size={18} />
+  </span>
+</button>
+
+<script>
+  interface AuthUser {
+    sub: string;
+    name: string;
+    email: string;
+    picture: string | null;
+  }
+
+  (function () {
+    function readCache(): AuthUser | null {
+      try {
+        const raw = localStorage.getItem('qimochi:user-cache');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Partial<AuthUser> | null;
+        if (
+          parsed &&
+          typeof parsed.sub === 'string' &&
+          typeof parsed.name === 'string'
+        ) {
+          return {
+            sub: parsed.sub,
+            name: parsed.name,
+            email: typeof parsed.email === 'string' ? parsed.email : '',
+            picture: typeof parsed.picture === 'string' ? parsed.picture : null,
+          };
+        }
+      } catch {}
+      return null;
+    }
+
+    function init(btn: HTMLButtonElement): void {
+      if (btn.dataset.bound === '1') return;
+      btn.dataset.bound = '1';
+
+      const ANIME_ID = btn.dataset.anime || '';
+      const API = (btn.dataset.api || '').replace(/\/$/, '');
+      if (!ANIME_ID || !API) return;
+
+      let currentUser: AuthUser | null = null;
+      let bookmarked = false;
+      let submitting = false;
+
+      function applyState(): void {
+        btn.classList.toggle('is-active', bookmarked);
+        btn.setAttribute('aria-pressed', String(bookmarked));
+        btn.setAttribute(
+          'aria-label',
+          bookmarked ? 'Hapus dari bookmark' : 'Simpan ke bookmark'
+        );
+        btn.title = bookmarked ? 'Hapus dari bookmark' : 'Simpan ke bookmark';
+        btn.disabled = submitting;
+      }
+
+      async function fetchStatus(): Promise<void> {
+        if (!currentUser) {
+          bookmarked = false;
+          applyState();
+          return;
+        }
+        try {
+          const res = await fetch(
+            `${API}/api/v1/bookmarks/${encodeURIComponent(ANIME_ID)}`,
+            { credentials: 'include' }
+          );
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json = (await res.json()) as {
+            data?: { bookmarked?: boolean };
+          };
+          bookmarked = Boolean(json.data?.bookmarked);
+        } catch (err) {
+          console.error('[bookmark] fetch failed', err);
+          bookmarked = false;
+        } finally {
+          applyState();
+        }
+      }
+
+      async function toggle(): Promise<void> {
+        if (submitting) return;
+
+        if (!currentUser) {
+          const menu = (window as any).__qimochiUserMenu;
+          if (menu?.open) menu.open();
+          return;
+        }
+
+        submitting = true;
+        applyState();
+
+        const next = !bookmarked;
+        bookmarked = next;
+        applyState();
+
+        try {
+          const res = await fetch(
+            `${API}/api/v1/bookmarks/${encodeURIComponent(ANIME_ID)}`,
+            {
+              method: next ? 'POST' : 'DELETE',
+              credentials: 'include',
+            }
+          );
+
+          if (res.status === 401) {
+            currentUser = null;
+            bookmarked = false;
+            applyState();
+            const menu = (window as any).__qimochiUserMenu;
+            if (menu?.open) menu.open();
+            return;
+          }
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        } catch (err) {
+          console.error('[bookmark] toggle failed', err);
+          bookmarked = !next;
+        } finally {
+          submitting = false;
+          applyState();
+        }
+      }
+
+      btn.addEventListener('click', toggle);
+
+      function onAuthChanged(e: Event): void {
+        const detail = (e as CustomEvent<{ user: AuthUser | null }>).detail;
+        if (!detail) return;
+        const same = (detail.user?.sub ?? null) === (currentUser?.sub ?? null);
+        if (same) return;
+        currentUser = detail.user;
+        fetchStatus();
+      }
+
+      document.addEventListener('qimochi:auth-changed', onAuthChanged);
+
+      (function bootstrap(): void {
+        currentUser = readCache();
+        applyState();
+      })();
+
+      fetchStatus();
+
+      (async () => {
+        const menu = (window as any).__qimochiUserMenu;
+        if (menu?.getUser) {
+          const u = menu.getUser();
+          if ((u?.sub ?? null) !== (currentUser?.sub ?? null)) {
+            currentUser = u ?? null;
+            fetchStatus();
+          }
+        }
+      })();
+    }
+
+    document
+      .querySelectorAll<HTMLButtonElement>('[data-bookmark-btn]')
+      .forEach(init);
+  })();
+</script>
+
+<style>
+  .icon-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    cursor: pointer;
+    transition: color var(--t-fast), border-color var(--t-fast), background-color var(--t-fast);
+  }
+
+  .icon-action:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .icon-action:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .icon-action :global(svg) {
+    display: block;
+    width: 18px;
+    height: 18px;
+  }
+
+  .bookmark-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bookmark-icon--active {
+    display: none;
+  }
+
+  .bookmark-btn.is-active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .bookmark-btn.is-active .bookmark-icon--idle {
+    display: none;
+  }
+
+  .bookmark-btn.is-active .bookmark-icon--active {
+    display: inline-flex;
+  }
+</style>

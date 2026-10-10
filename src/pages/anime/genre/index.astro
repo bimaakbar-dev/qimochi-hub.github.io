@@ -1,29 +1,44 @@
 ---
+import { getCollection } from 'astro:content';
 import { getAllAnime } from '~/lib/anime';
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import Hero from '~/components/Hero.astro';
 import LinkCard from '~/user-components/LinkCard.astro';
-import { GENRES, URLS } from '~/constants';
+import { URLS } from '~/constants';
 
-const allAnime = await getAllAnime();
+const [allAnime, allGenres] = await Promise.all([
+  getAllAnime(),
+  getCollection('genres'),
+]);
 
-const genreCounts: Record<string, number> = {};
+const countMap = new Map<string, number>();
 allAnime.forEach(a => {
-  a.data.genre.forEach(g => {
-    genreCounts[g] = (genreCounts[g] || 0) + 1;
+  a.data.genres.forEach(slug => {
+    countMap.set(slug, (countMap.get(slug) ?? 0) + 1);
   });
 });
 
-const genres = GENRES
-  .map(name => ({ name, count: genreCounts[name] || 0 }))
+const categoryOrder = { genre: 0, theme: 1, demographic: 2 } as const;
+
+const genres = allGenres
+  .map(g => ({
+    id: g.data.id,
+    name: g.data.name,
+    category: g.data.category,
+    count: countMap.get(g.data.id) ?? 0,
+  }))
   .filter(g => g.count > 0)
-  .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  .sort((a, b) => {
+    const diff = categoryOrder[a.category] - categoryOrder[b.category];
+    if (diff !== 0) return diff;
+    return a.name.localeCompare(b.name, 'id-ID');
+  });
 ---
 
 <BaseLayout
   title="Semua Genre"
   description="Jelajahi anime berdasarkan genre."
-  canonical="/genre/"
+  canonical="/anime/genre/"
 >
   <div class="wrapper">
 
@@ -35,7 +50,7 @@ const genres = GENRES
     <div class="genre-grid">
       {genres.map(g => (
         <LinkCard
-          href={URLS.genre(g.name)}
+          href={URLS.genre(g.id)}
           variant="outline"
           padding="md"
         >

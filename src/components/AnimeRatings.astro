@@ -48,6 +48,13 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
     >×</button>
   </div>
 
+  <button
+    type="button"
+    class="rating-cta"
+    data-rating-cta
+    hidden
+  ></button>
+
   <div class="rating-dist" data-dist hidden>
     {[5, 4, 3, 2, 1].map((n) => (
       <div class="rating-dist-row">
@@ -198,6 +205,28 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
     display: none;
   }
 
+  .rating-cta {
+    align-self: flex-start;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    line-height: var(--lh-tight);
+    text-align: left;
+    cursor: pointer;
+    transition: color var(--t-fast);
+  }
+
+  .rating-cta:hover {
+    color: var(--accent);
+  }
+
+  .rating-cta[hidden] {
+    display: none;
+  }
+
   .rating-dist {
     display: flex;
     flex-direction: column;
@@ -270,6 +299,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
     const votesEl = root.querySelector<HTMLElement>('[data-votes]')!;
     const userEl = root.querySelector<HTMLElement>('[data-user]')!;
     const clearBtn = root.querySelector<HTMLButtonElement>('[data-clear]')!;
+    const ctaBtn = root.querySelector<HTMLButtonElement>('[data-rating-cta]')!;
     const distEl = root.querySelector<HTMLElement>('[data-dist]')!;
     const fills: Record<number, HTMLElement> = {};
     const counts: Record<number, HTMLElement> = {};
@@ -305,6 +335,21 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
       }
     }
 
+    function updateCta(): void {
+      if (!currentUser) {
+        ctaBtn.textContent = 'Login atau daftar untuk memberi rating';
+        ctaBtn.hidden = false;
+        return;
+      }
+      if (userScore === null) {
+        ctaBtn.textContent = 'Beri rating';
+        ctaBtn.hidden = false;
+        return;
+      }
+      ctaBtn.hidden = true;
+      ctaBtn.textContent = '';
+    }
+
     function setInteractive(): void {
       const canRate = !!currentUser;
       for (const s of stars) s.disabled = !canRate || submitting;
@@ -321,6 +366,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
         userEl.hidden = true;
       }
       updateAria();
+      updateCta();
     }
 
     function renderDistribution(dist: Record<number, number>): void {
@@ -350,7 +396,6 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
     function toggleDist(): void {
       if (distEl.hidden && !distOpen) {
         distOpen = true;
-        // only show if there is data
         const anyCount = [1, 2, 3, 4, 5].some(
           (n) => Number(counts[n].textContent || '0') > 0
         );
@@ -390,6 +435,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
         averageEl.textContent = '—';
         votesEl.textContent = '';
         setInteractive();
+        updateCta();
         scoreBtn.disabled = true;
       }
     }
@@ -413,6 +459,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
         if (res.status === 401) {
           currentUser = null;
           setInteractive();
+          updateCta();
           return;
         }
 
@@ -454,6 +501,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
         if (res.status === 401) {
           currentUser = null;
           setInteractive();
+          updateCta();
           return;
         }
 
@@ -501,9 +549,22 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://api.qimochi.web.id';
     }
 
     clearBtn.addEventListener('click', () => clearRating());
+
     scoreBtn.addEventListener('click', () => {
       if (scoreBtn.disabled) return;
       toggleDist();
+    });
+
+    ctaBtn.addEventListener('click', () => {
+      // guest → buka panel login
+      if (!currentUser) {
+        const menu = (window as any).__qimochiUserMenu;
+        if (menu?.open) menu.open();
+        return;
+      }
+      // login, belum vote → fokus ke bintang pertama
+      const first = stars[0];
+      if (first) first.focus();
     });
 
     function readCache(): AuthUser | null {

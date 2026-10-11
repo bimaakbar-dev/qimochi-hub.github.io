@@ -18,7 +18,6 @@ export interface Franchise {
 
 export type AnimeEntry = CollectionEntry<'anime'>;
 
-// Display status yang dipakai UI (bukan schema — schema pakai raw enum)
 export type QimochiStatus = 'Ongoing' | 'Completed' | 'Hiatus' | 'Upcoming';
 export type QimochiType = 'TV' | 'Movie' | 'OVA' | 'ONA' | 'Special';
 
@@ -33,9 +32,15 @@ export type HydratedAnime = Omit<AnimeEntry, 'data'> & {
     studio: string;
     genre: string[];
     releaseDate: Date | null;
-    rating: number;          // = stats.score ?? 0 (backward compat — TODO rename ke `score`)
+
+    // alias eksplisit untuk skor (dari stats.score)
+    score: number | null;
+
     episodes: EpisodeData[];
     franchises: Franchise[];
+
+    // CATATAN: `rating` tetap dari schema (enum umur G/PG-13/...).
+    // JANGAN di-overwrite.
   };
 };
 
@@ -92,10 +97,6 @@ for (const [path, mod] of Object.entries(franchiseModules)) {
   );
 }
 
-// ────────────────────────────────────────────────────────
-// Mapping raw schema → display (view layer)
-// ────────────────────────────────────────────────────────
-
 function toDisplayStatus(s: RawStatus): QimochiStatus {
   return STATUS_LABEL[s] as QimochiStatus;
 }
@@ -132,10 +133,10 @@ function resolveGenre(genres: string[] | undefined): string[] {
   return genres.map(titleCase);
 }
 
-function resolveRating(stats: { score?: number } | undefined): number {
+function resolveScore(stats: { score?: number } | undefined): number | null {
   const s = stats?.score;
   if (typeof s === 'number' && s >= 0) return s;
-  return 0;
+  return null;
 }
 
 async function hydrateOne(anime: AnimeEntry): Promise<HydratedAnime> {
@@ -147,16 +148,14 @@ async function hydrateOne(anime: AnimeEntry): Promise<HydratedAnime> {
   return {
     ...anime,
     data: {
-      ...d,
-      // display overrides
+      ...d,   // <- bawa `rating` (enum) apa adanya, JANGAN ditimpa
       status: toDisplayStatus(d.status as RawStatus),
       type: toDisplayType(d.type as RawType),
-      // view convenience
       cover: d.image ?? '',
       studio: resolveStudio(d.studios),
       genre: resolveGenre(d.genres),
       releaseDate,
-      rating: resolveRating(d.stats),
+      score: resolveScore(d.stats),
       episodes: episodesBySlug[slug] ?? [],
       franchises: franchisesBySlug[slug] ?? [],
     },
